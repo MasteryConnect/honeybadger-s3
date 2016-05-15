@@ -1,0 +1,5 @@
+bitbucket.org/masteryconnectetl/honeybadger-s3 !self
+
+github.com/aws/aws-sdk-go
+github.com/codegangsta/cli
+github.com/Sirupsen/logrus
