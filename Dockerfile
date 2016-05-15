@@ -1,4 +1,4 @@
-# IMAGE docker.mstry.io/etl/honeybadger-s3:1.0
+# IMAGE masteryconnect/honeybadger-s3:1.0
 # Start from apline, a minimal docker image
 FROM alpine:3.2
 

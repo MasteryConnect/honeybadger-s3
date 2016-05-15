@@ -1,8 +1,7 @@
 package honeybadger_test
 
 import (
-	. "bitbucket.org/masteryconnectetl/honeybadger-s3/honeybadger"
-	// log "github.com/Sirupsen/logrus"
+	. "github.com/MasteryConnect/honeybadger-s3/honeybadger"
 	"testing"
 )
 

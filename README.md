@@ -10,7 +10,7 @@ You can easily run this out of a docker container. This project comes with a Doc
 ## Code Example
 Run in a docker container passing in the necessary environment variables to configure `honeybadger-s3` and `docker-cron`
 ```
-docker run -v ~/.aws/credentials:/root/.aws/credentials --name=honeybadger-s3 -e "DC_SECS=*/5" -e "S3_BUCKET=mc-metrics" -e "PROJECTS=mindful" -e "S3_DIRECTORY=honeybadger" docker.mstry.io/masteryconnectetl/honeybadger-s3
+docker run -v ~/.aws/credentials:/root/.aws/credentials --name=honeybadger-s3 -e "DC_SECS=*/5" -e "S3_BUCKET=mc-metrics" -e "PROJECTS=mindful" -e "S3_DIRECTORY=honeybadger" masteryconnect/honeybadger-s3
 ```
 
 To see the help text

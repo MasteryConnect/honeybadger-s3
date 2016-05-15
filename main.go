@@ -19,7 +19,7 @@ func init() {
 func main() {
 	app := cli.NewApp()
 	app.Name = "honeybadger-s3"
-	app.Version = "1.1"
+	app.Version = "1.0"
 	app.Usage = `
    backup honeybadger.io faults to AWS S3.
 

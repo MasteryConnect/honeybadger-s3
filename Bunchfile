@@ -1,4 +1,4 @@
-bitbucket.org/masteryconnectetl/honeybadger-s3 !self
+github.com/MasteryConnect/honeybadger-s3 !self
 
 github.com/aws/aws-sdk-go
 github.com/codegangsta/cli

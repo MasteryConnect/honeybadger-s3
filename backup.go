@@ -1,8 +1,8 @@
 package main
 
 import (
-	hb "bitbucket.org/masteryconnectetl/honeybadger-s3/honeybadger"
-	"bitbucket.org/masteryconnectetl/honeybadger-s3/s3"
+	hb "github.com/MasteryConnect/honeybadger-s3/honeybadger"
+	"github.com/MasteryConnect/honeybadger-s3/s3"
 	log "github.com/Sirupsen/logrus"
 	"strings"
 	"time"
