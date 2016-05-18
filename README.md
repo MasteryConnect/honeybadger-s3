@@ -5,12 +5,24 @@ A simple Go command line utility to save Honeybadger.io data to AWS S3
 `honeybadger-s3` was created to save honeybadger.io data in AWS S3, for the purpose of backup, and opportunity for later analysis. `honeybadger-s3` can pull data from one or more projects, it can do this incrementally or pull everything every time it runs.
 
 ## Docker
-You can easily run this out of a docker container. This project comes with a Dockerfile and ./build.sh script to create your docker image. Inside the docker container this project makes use of the (docker-cron)[https://github.com/MasteryConnect/docker-cron] project. `docker-cron` allows easy configuration in docker of a cron process that also keeps the docker container up and running.
+You can easily run this out of a docker container. This project comes with a Dockerfile and ./build.sh script to create your docker image. Inside the docker container this project makes use of the (docker-cron)[https://github.com/MasteryConnect/docker-cron] project. `docker-cron` allows easy configuration in docker of a cron process that also keeps the docker container up and running. The ./build.sh script builds a linux binary, located at ./bin/honeybadger-s3.
 
-## Code Example
+## Examples
+After running ./build.sh:
+
+Run the linux binary
+```
+./bin/honeybadger-s3 --help
+```
+
 Run in a docker container passing in the necessary environment variables to configure `honeybadger-s3` and `docker-cron`
 ```
 docker run -v ~/.aws/credentials:/root/.aws/credentials --name=honeybadger-s3 -e "DC_SECS=*/5" -e "S3_BUCKET=mc-metrics" -e "PROJECTS=mindful" -e "S3_DIRECTORY=honeybadger" masteryconnect/honeybadger-s3
+```
+
+Run just honeybadger-s3 (without docker-cron) from the docker container.
+```
+docker run -it --rm -v ~/.aws/credentials:/root/.aws/credentials masteryconnect/honeybadger-s3:1.0 honeybadger-s3 --help
 ```
 
 To see the help text
@@ -33,7 +45,7 @@ USAGE:
    honeybadger-s3 [global options] command [command options] [arguments...]
 
 VERSION:
-   1.1
+   1.0
 
 COMMANDS:
    help, h      Shows a list of commands or help for one command
