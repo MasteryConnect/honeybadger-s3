@@ -1,7 +1,6 @@
-package honeybadger_test
+package honeybadger
 
 import (
-	. "github.com/MasteryConnect/honeybadger-s3/honeybadger"
 	"testing"
 )
 
