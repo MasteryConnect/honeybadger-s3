@@ -2,7 +2,7 @@ package main
 
 import (
 	log "github.com/Sirupsen/logrus"
-	"github.com/codegangsta/cli"
+	"gopkg.in/urfave/cli.v1"
 	"os"
 )
 
@@ -12,8 +12,8 @@ func init() {
 		TimestampFormat: "2006-01-02 15:04:05",
 		ForceColors:     true,
 	})
-	// log.SetLevel(log.DebugLevel)
-	log.SetLevel(log.InfoLevel)
+	log.SetLevel(log.DebugLevel)
+	// log.SetLevel(log.InfoLevel)
 }
 
 func main() {

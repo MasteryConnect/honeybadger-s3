@@ -1,86 +1,56 @@
 package honeybadger
 
-import (
-	"encoding/json"
-	log "github.com/Sirupsen/logrus"
-)
-
 type Notices struct {
-	ProjectId     int      `json:"-"`
-	FaultId       int      `json:"-"`
-	ResultIdx     int      `json:"-"`
-	CallNeeded    bool     `json:"-"`
-	ApiKey        string   `json:"-"`
-	OccurredAfter int64    `json:"-"`
-	Results       []Notice `json:"results"`
-	TotalCount    int      `json:"total_count"`
-	CurrentPage   int      `json:"current_page"`
-	NumPages      int      `json:"num_pages"`
+	FaultId    int      `json:"-"`
+	ResultIdx  int      `json:"-"`
+	CallNeeded bool     `json:"-"`
+	Request    *Request `json:"-"`
+	Results    []Notice `json:"results"`
+	Links      Links    `json:"links"`
 }
 
 type Notice struct {
-	Id               int                    `json:"id"`
+	Id               string                 `json:"id"`
 	FaultId          int                    `json:"fault_id"`
-	Environment      Environment            `json:"environment"`
+	EnvName          string                 `json:"environment>environment_name"`
+	EnvHostname      string                 `json:"environment>hostname"`
+	EnvProjectRoot   string                 `json:"environment>project_root"`
 	CreatedAt        string                 `json:"created_at"`
 	Message          string                 `json:"message"`
 	Token            string                 `json:"token"`
-	Request          Request                `json:"request"`
-	Backtrace        []Trace                `json:"backtrace"`
-	ApplicationTrace []Trace                `json:"application_trace"`
+	Request          request                `json:"request"`
+	Backtrace        []trace                `json:"backtrace"`
+	ApplicationTrace []trace                `json:"application_trace"`
 	WebEnv           map[string]interface{} `json:"web_environment"`
-	Deploy           Deploy                 `json:"deploy"`
+	Cookies          map[string]interface{} `json:"cookies"`
 	Url              string                 `json:"url"`
 }
 
-type Request struct {
+type request struct {
 	Url       string                 `json:"url"`
 	Component string                 `json:"component"`
 	Action    string                 `json:"action"`
 	Params    map[string]interface{} `json:"params"`
 	Session   map[string]interface{} `json:"session"`
 	Context   map[string]interface{} `json:"context"`
+	UserEmail string                 `json:"user>email"`
+	UserId    string                 `json:"user>id"`
 }
 
-type Deploy struct {
-	Environment   string `json:"environment"`
-	Revision      string `json:"revision"`
-	Repository    string `json:"repository"`
-	LocalUsername string `json:"local_username"`
-	CreatedAt     string `json:"created_at"`
-	Url           string `json:"url"`
+type trace struct {
+	Number int    `json:"number"`
+	File   string `json:"file"`
+	Method string `json:"method"`
+	Column int    `json:"column"`
 }
 
-type Trace struct {
-	Number json.Number `json:"number,Number"`
-	File   string      `json:"file"`
-	Method string      `json:"method"`
-}
-
-func NewNotices(projectId, faultId int, apiKey string, occurredAfter int64) *Notices {
+func NewNotices(projectId, faultId int, apiKey string, createdAfter int64) *Notices {
 	return &Notices{
-		ProjectId:     projectId,
-		FaultId:       faultId,
-		ResultIdx:     -1, // Increments on each call to Next()
-		CurrentPage:   -1, // So the first next page call passes
-		CallNeeded:    true,
-		ApiKey:        apiKey,
-		OccurredAfter: occurredAfter,
+		FaultId:    faultId,
+		ResultIdx:  -1, // Increments on each call to Next()
+		CallNeeded: true,
+		Request:    NewRequest(projectId, HB_API_ENDPOINT, apiKey, createdAfter),
 	}
-}
-
-// Loads the Notices struct with the notices on the given page argument
-func (p *Notices) GetNotices(page int) {
-	var hbUrl string
-	if p.OccurredAfter > 0 {
-		hbUrl = NewURL(HB_API_ENDPOINT).SetApiKey(p.ApiKey).SetPage(page).SetCreatedAfter(p.OccurredAfter).FaultNotices(p.ProjectId, p.FaultId)
-	} else {
-		hbUrl = NewURL(HB_API_ENDPOINT).SetApiKey(p.ApiKey).SetPage(page).FaultNotices(p.ProjectId, p.FaultId)
-	}
-	log.WithFields(log.Fields{
-		"url": hbUrl,
-	}).Debug("run data")
-	CallHB(hbUrl, p)
 }
 
 // Iterates through all of the notices. This makes an API call the first time
@@ -100,44 +70,41 @@ func (p *Notices) Next() (notice *Notice, more bool) {
 	return nil, false
 }
 
-func (f *Notices) hasResults() bool {
-	if f.TotalCount == 0 {
+func (n *Notices) hasResults() bool {
+	if len(n.Results) == 0 {
 		return false
 	}
 	return true
 }
 
-func (f *Notices) moreResults() bool {
-	if f.CallNeeded {
-		if nextPage, morePages := f.NextPage(); morePages {
-			f.GetNotices(nextPage)
-			return f.hasResults()
+func (n *Notices) moreResults() bool {
+	if n.CallNeeded {
+		if n.hasResults() {
+			n.Request.Next(n.GetNextUrl(), n)
 		} else {
-			return false
+			n.Request.Notices(n.FaultId, n)
 		}
+		return n.hasResults()
 	}
 	return true
-}
-
-// Returns the page number for the next page and true if there are more pages.
-// If no more pages are available i.e. Notices.CurrentPage == Notices.NumPages,
-// then -1 and false is returned
-func (p *Notices) NextPage() (nextPage int, morePages bool) {
-	if p.CurrentPage < p.NumPages {
-		return p.CurrentPage + 1, true
-	} else {
-		return -1, false
-	}
 }
 
 //
 // Response methods
 //
 
-func (p *Notices) SetCallNeeded(needed bool) {
-	p.CallNeeded = needed
+func (n *Notices) SetCallNeeded(needed bool) {
+	n.CallNeeded = needed
 }
 
-func (p *Notices) SetResultIdx(idx int) {
-	p.ResultIdx = idx
+func (n *Notices) SetResultIdx(idx int) {
+	n.ResultIdx = idx
+}
+
+func (n *Notices) GetNextUrl() *URL {
+	return NewURL(n.Links.Next)
+}
+
+func (n *Notices) Count() int {
+	return len(n.Results)
 }

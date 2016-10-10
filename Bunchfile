@@ -3,4 +3,4 @@ github.com/MasteryConnect/honeybadger-s3 !self
 github.com/Sirupsen/logrus
 github.com/aws/aws-sdk-go/aws
 github.com/aws/aws-sdk-go/service/s3
-github.com/codegangsta/cli
+gopkg.in/urfave/cli.v1

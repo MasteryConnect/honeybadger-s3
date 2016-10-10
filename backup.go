@@ -97,9 +97,9 @@ func backupProject(ctx *Context, project *hb.Project, s3Projects *s3.Upload) err
 		log.WithFields(
 			log.Fields{
 				"count": faultCount,
-				"total": faults.TotalCount},
+				"total": project.FaultCount},
 		).Info("Faults")
-		err := backupFault(ctx, fault, s3Faults, s3Notices, faultCount, faults.TotalCount, lastRunTimestamp)
+		err := backupFault(ctx, fault, s3Faults, s3Notices, faultCount, project.FaultCount, lastRunTimestamp)
 		if err != nil {
 			return err
 		}
@@ -137,13 +137,13 @@ func backupFault(ctx *Context, fault *hb.Fault, s3Faults *s3.Upload, s3Notices *
 	noticeCount := 0
 	for notice, more := notices.Next(); more; notice, more = notices.Next() {
 		noticeCount++
-		if notices.TotalCount < 150 || noticeCount%100 == 0 {
+		if fault.NoticesCount < 150 || noticeCount%100 == 0 {
 			log.WithFields(
 				log.Fields{
 					"fault count":  faultCount,
 					"fault total":  faultTotal,
 					"notice count": noticeCount,
-					"notice total": notices.TotalCount},
+					"notice total": fault.NoticesCount},
 			).Info("Notices")
 		}
 		// Upload this notice
@@ -161,14 +161,6 @@ func backupFault(ctx *Context, fault *hb.Fault, s3Faults *s3.Upload, s3Notices *
 	}
 
 	return err
-}
-
-func projectProgressBarTotal(projects *hb.Projects) int {
-	if projects.IncludeAll {
-		return projects.TotalCount
-	} else {
-		return len(projects.ProjectIncludeList)
-	}
 }
 
 func constructS3FilePath(s3Prefix string, names ...string) string {

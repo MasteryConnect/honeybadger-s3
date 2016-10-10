@@ -12,49 +12,42 @@ type Projects struct {
 	IncludeAll         bool            `json:"-"`
 	ResultIdx          int             `json:"-"`
 	CallNeeded         bool            `json:"-"`
-	ApiKey             string          `json:"-"`
+	Request            *Request        `json:"-"`
 	Results            []Project       `json:"results"`
-	TotalCount         int             `json:"total_count"`
-	CurrentPage        int             `json:"current_page"`
-	NumPages           int             `json:"num_pages"`
+	Links              Links           `json:"links"`
 }
 
 type Project struct {
-	Id                   int           `json:"id"`
-	Name                 string        `json:"name"`
-	Token                string        `json:"token"`
-	CreatedAt            time.Time     `json:"created_at"`
-	DisablePublicLinks   bool          `json:"disable_public_links"`
-	TeamId               int           `json:"team_id"`
-	Environments         []Environment `json:"environments"`
-	OwnerId              int           `json:"owner>id"`
-	OwnerEmail           string        `json:"owner>email"`
-	OnwerName            string        `json:"owner>name"`
-	LastNoticeAt         time.Time     `json:"last_notice_at"`
-	EarliestNoticeAt     time.Time     `json:"earliest_notice_at"`
-	UnresolvedFaultCount int           `json:"unresolved_fault_count"`
-	FaultCount           int           `json:"fault_count"`
-	Active               bool          `json:"active"`
-	Users                []User        `json:"users"`
-	Sites                []Site        `json:"sites"`
+	Id                   int       `json:"id"`
+	Name                 string    `json:"name"`
+	Token                string    `json:"token"`
+	CreatedAt            time.Time `json:"created_at"`
+	Teams                []team    `json:"teams"`
+	Environments         []string  `json:"environments"`
+	OwnerId              int       `json:"owner>id"`
+	OwnerEmail           string    `json:"owner>email"`
+	OnwerName            string    `json:"owner>name"`
+	LastNoticeAt         time.Time `json:"last_notice_at"`
+	EarliestNoticeAt     time.Time `json:"earliest_notice_at"`
+	UnresolvedFaultCount int       `json:"unresolved_fault_count"`
+	FaultCount           int       `json:"fault_count"`
+	Active               bool      `json:"active"`
+	Users                []user    `json:"users"`
+	Sites                []site    `json:"sites"`
 }
 
-type Environment struct {
-	Id            int       `json:"id"`
-	ProjectId     int       `json:"project_id"`
-	Name          string    `json:"name"`
-	Notifications bool      `json:"notifications"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
+type team struct {
+	Id   int    `json:"id"`
+	Name string `json:"name"`
 }
 
-type User struct {
+type user struct {
 	Id    int    `json:"id"`
 	Email string `json:"email"`
 	Name  string `json:"name"`
 }
 
-type Site struct {
+type site struct {
 	Id            string    `json:"id"`
 	Active        bool      `json:"active"`
 	LastCheckedAt time.Time `json:"last_checked_at"`
@@ -73,16 +66,9 @@ func NewProjects(projects, apiKey string) *Projects {
 		ProjectIncludeList: projectIncludeList,
 		IncludeAll:         includeAll,
 		ResultIdx:          -1, // Increments on each call to Next()
-		CurrentPage:        -1, // So the first next page call passes
 		CallNeeded:         true,
-		ApiKey:             apiKey,
+		Request:            NewRequest(0, HB_API_ENDPOINT, apiKey, 0),
 	}
-}
-
-// Loads the Projects struct with the projects on the given page argument
-func (p *Projects) GetProjects(page int) {
-	hbUrl := NewURL(HB_API_ENDPOINT).SetApiKey(p.ApiKey).SetPage(page)
-	CallHB(hbUrl.String(), p)
 }
 
 // Iterates through all of the projects. This makes an API call the first time
@@ -141,34 +127,23 @@ func (p *Projects) includeListNext() (project *Project, more bool) {
 	return nil, false
 }
 
-func (f *Projects) hasResults() bool {
-	if f.TotalCount == 0 {
+func (p *Projects) hasResults() bool {
+	if len(p.Results) == 0 {
 		return false
 	}
 	return true
 }
 
-func (f *Projects) moreResults() bool {
-	if f.CallNeeded {
-		if nextPage, morePages := f.NextPage(); morePages {
-			f.GetProjects(nextPage)
-			return f.hasResults()
+func (p *Projects) moreResults() bool {
+	if p.CallNeeded {
+		if p.hasResults() {
+			p.Request.Next(p.GetNextUrl(), p)
 		} else {
-			return false
+			p.Request.Projects(p)
 		}
+		return p.hasResults()
 	}
 	return true
-}
-
-// Returns the page number for the next page and true if there are more pages.
-// If no more pages are available i.e. Projects.CurrentPage == Projects.NumPages,
-// then -1 and false is returned
-func (p *Projects) NextPage() (nextPage int, morePages bool) {
-	if p.CurrentPage < p.NumPages {
-		return p.CurrentPage + 1, true
-	} else {
-		return -1, false
-	}
 }
 
 func parseProjectList(projects string) map[string]bool {
@@ -194,4 +169,12 @@ func (p *Projects) SetCallNeeded(needed bool) {
 
 func (p *Projects) SetResultIdx(idx int) {
 	p.ResultIdx = idx
+}
+
+func (p *Projects) GetNextUrl() *URL {
+	return NewURL(p.Links.Next)
+}
+
+func (p *Projects) Count() int {
+	return len(p.Results)
 }
