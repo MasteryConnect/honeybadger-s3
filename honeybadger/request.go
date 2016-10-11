@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	log "github.com/Sirupsen/logrus"
 )
@@ -14,14 +15,22 @@ type Request struct {
 	ApiKey       string
 	CreatedAfter int64
 	ProjectId    int
+	RateLimit    *RateLimit
 }
 
-func NewRequest(projectId int, endpoint, apiKey string, createdAfter int64) *Request {
+type RateLimit struct {
+	Limit     int
+	Remaining int
+	Reset     int64
+}
+
+func NewRequest(projectId int, endpoint, apiKey string, createdAfter int64, rateLimit *RateLimit) *Request {
 	return &Request{
 		Endpoint:     endpoint,
 		ApiKey:       apiKey,
 		ProjectId:    projectId,
 		CreatedAfter: createdAfter,
+		RateLimit:    rateLimit,
 	}
 }
 
@@ -81,6 +90,19 @@ func (r *Request) Next(url *URL, results Response) {
 }
 
 func (r *Request) CallHB(url string, results Response) {
+	if r.RateLimit.Limit > 0 && r.RateLimit.Remaining == 0 {
+		resetTime := time.Unix(r.RateLimit.Reset, 0)
+		log.WithFields(log.Fields{
+			"limit":     r.RateLimit.Limit,
+			"remaining": r.RateLimit.Remaining,
+			"reset":     resetTime,
+		}).Warn("Waiting - we have reached the rate limit:")
+		log.WithFields(log.Fields{
+			"until": resetTime,
+		}).Warn("Waiting")
+		time.Sleep(resetTime.Sub(time.Now()))
+	}
+
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		log.Fatalln(err)
@@ -101,6 +123,17 @@ func (r *Request) CallHB(url string, results Response) {
 			}
 		}
 		defer resp.Body.Close()
+
+		headers := resp.Header
+		r.RateLimit.Limit, _ = strconv.Atoi(headers.Get("X-RateLimit-Limit"))
+		r.RateLimit.Remaining, _ = strconv.Atoi(headers.Get("X-RateLimit-Remaining"))
+		r.RateLimit.Reset, _ = strconv.ParseInt(headers.Get("X-RateLimit-Reset"), 10, 64)
+		log.WithFields(log.Fields{
+			"limit":     r.RateLimit.Limit,
+			"remaining": r.RateLimit.Remaining,
+			"reset":     r.RateLimit.Reset,
+		}).Debug("Rate Limiting:")
+
 		decoder := json.NewDecoder(resp.Body)
 		err = decoder.Decode(results)
 		if err != nil {

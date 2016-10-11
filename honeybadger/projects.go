@@ -56,7 +56,7 @@ type site struct {
 	Url           string    `json:"url"`
 }
 
-func NewProjects(projects, apiKey string) *Projects {
+func NewProjects(projects, apiKey string, rateLimit *RateLimit) *Projects {
 	projectIncludeList := parseProjectList(projects)
 	includeAll := false
 	if len(projectIncludeList) < 1 {
@@ -67,7 +67,7 @@ func NewProjects(projects, apiKey string) *Projects {
 		IncludeAll:         includeAll,
 		ResultIdx:          -1, // Increments on each call to Next()
 		CallNeeded:         true,
-		Request:            NewRequest(0, HB_API_ENDPOINT, apiKey, 0),
+		Request:            NewRequest(0, HB_API_ENDPOINT, apiKey, 0, rateLimit),
 	}
 }
 

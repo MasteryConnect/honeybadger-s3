@@ -61,13 +61,13 @@ func main() {
 			log.Fatal("honeybadger-key argument is required!")
 		}
 		backup(
-			&Context{
-				S3bucket:           c.String("s3-bucket"),
-				S3prefix:           c.String("s3-directory"),
-				ProjectIncludeList: c.String("projects"),
-				HoneybadgerKey:     c.String("honeybadger-key"),
-				LastRun:            c.String("last-run"),
-			},
+			NewContext(
+				c.String("s3-bucket"),
+				c.String("s3-directory"),
+				c.String("projects"),
+				c.String("honeybadger-key"),
+				c.String("last-run"),
+			),
 		)
 	}
 

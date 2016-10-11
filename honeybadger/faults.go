@@ -30,11 +30,11 @@ type Fault struct {
 	AssigneeName  string   `json:"assignee>name"`
 }
 
-func NewFaults(projectId int, apiKey string, createdAfter int64) *Faults {
+func NewFaults(projectId int, apiKey string, createdAfter int64, rateLimit *RateLimit) *Faults {
 	return &Faults{
 		ResultIdx:  -1, // Increments on each call to Next()
 		CallNeeded: true,
-		Request:    NewRequest(projectId, HB_API_ENDPOINT, apiKey, createdAfter),
+		Request:    NewRequest(projectId, HB_API_ENDPOINT, apiKey, createdAfter, rateLimit),
 	}
 }
 

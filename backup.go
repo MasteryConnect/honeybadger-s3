@@ -16,6 +16,22 @@ type Context struct {
 	LastRun            string
 	RunData            *s3.RunData
 	UploadedFiles      []string
+	RateLimit          *hb.RateLimit
+}
+
+func NewContext(bucket, directory, projects, key, lastRun string) *Context {
+	return &Context{
+		S3bucket:           bucket,
+		S3prefix:           directory,
+		ProjectIncludeList: projects,
+		HoneybadgerKey:     key,
+		LastRun:            lastRun,
+		RateLimit: &hb.RateLimit{
+			Limit:     0,
+			Remaining: 0,
+			Reset:     0,
+		},
+	}
 }
 
 func backup(ctx *Context) {
@@ -40,7 +56,7 @@ func runNewBackup(ctx *Context) {
 	ctx.RunData = s3.NewRunData(ctx.S3bucket, ctx.S3prefix+"/honeybadger-s3-run-data.txt", ctx.LastRun)
 
 	// Get a list of honeybadger projects, filter to only those we want to backup
-	projects := hb.NewProjects(ctx.ProjectIncludeList, ctx.HoneybadgerKey)
+	projects := hb.NewProjects(ctx.ProjectIncludeList, ctx.HoneybadgerKey, ctx.RateLimit)
 	// Create the project upload
 	s3Projects := s3.NewUpload(ctx.S3bucket, constructS3FilePath(ctx.S3prefix, "projects"))
 	err := s3Projects.CreateUpload()
@@ -90,7 +106,7 @@ func backupProject(ctx *Context, project *hb.Project, s3Projects *s3.Upload) err
 		s3Faults.HandleError(err) // FIXME: Should abort all uploads
 		return err
 	}
-	faults := hb.NewFaults(project.Id, ctx.HoneybadgerKey, lastRunTimestamp)
+	faults := hb.NewFaults(project.Id, ctx.HoneybadgerKey, lastRunTimestamp, ctx.RateLimit)
 	faultCount := 0
 	for fault, more := faults.Next(); more; fault, more = faults.Next() {
 		faultCount++
@@ -132,7 +148,7 @@ func backupProject(ctx *Context, project *hb.Project, s3Projects *s3.Upload) err
 
 func backupFault(ctx *Context, fault *hb.Fault, s3Faults *s3.Upload, s3Notices *s3.Upload, faultCount, faultTotal int, lastRunTimestamp int64) error {
 	// Get the projects faults
-	notices := hb.NewNotices(fault.ProjectId, fault.Id, ctx.HoneybadgerKey, lastRunTimestamp)
+	notices := hb.NewNotices(fault.ProjectId, fault.Id, ctx.HoneybadgerKey, lastRunTimestamp, ctx.RateLimit)
 
 	noticeCount := 0
 	for notice, more := notices.Next(); more; notice, more = notices.Next() {

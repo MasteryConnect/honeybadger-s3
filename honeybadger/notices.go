@@ -44,12 +44,12 @@ type trace struct {
 	Column int    `json:"column"`
 }
 
-func NewNotices(projectId, faultId int, apiKey string, createdAfter int64) *Notices {
+func NewNotices(projectId, faultId int, apiKey string, createdAfter int64, rateLimit *RateLimit) *Notices {
 	return &Notices{
 		FaultId:    faultId,
 		ResultIdx:  -1, // Increments on each call to Next()
 		CallNeeded: true,
-		Request:    NewRequest(projectId, HB_API_ENDPOINT, apiKey, createdAfter),
+		Request:    NewRequest(projectId, HB_API_ENDPOINT, apiKey, createdAfter, rateLimit),
 	}
 }
 
