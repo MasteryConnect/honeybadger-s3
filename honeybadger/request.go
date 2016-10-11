@@ -22,6 +22,7 @@ type RateLimit struct {
 	Limit     int
 	Remaining int
 	Reset     int64
+	ZeroHits  int
 }
 
 func NewRequest(projectId int, endpoint, apiKey string, createdAfter int64, rateLimit *RateLimit) *Request {
@@ -78,30 +79,21 @@ func (r *Request) Notices(faultId int, results Response) {
 // pass on to CallHB. This can be removed if we don't have to add created_after
 // i.e. it is a bug that HB fixes
 func (r *Request) Next(url *URL, results Response) {
-	// Seems like a bug that we have to add created after to next
-	if r.CreatedAfter > 0 {
-		url = url.SetCreatedAfter(r.CreatedAfter)
+	if !url.Empty {
+		// Seems like a bug that we have to add created after to next
+		if r.CreatedAfter > 0 {
+			url = url.SetCreatedAfter(r.CreatedAfter)
+		}
+		urlStr := url.String()
+		log.WithFields(log.Fields{
+			"url": urlStr,
+		}).Debug("run data")
+		r.CallHB(urlStr, results)
 	}
-	urlStr := url.String()
-	log.WithFields(log.Fields{
-		"url": urlStr,
-	}).Debug("run data")
-	r.CallHB(urlStr, results)
 }
 
 func (r *Request) CallHB(url string, results Response) {
-	if r.RateLimit.Limit > 0 && r.RateLimit.Remaining == 0 {
-		resetTime := time.Unix(r.RateLimit.Reset, 0)
-		log.WithFields(log.Fields{
-			"limit":     r.RateLimit.Limit,
-			"remaining": r.RateLimit.Remaining,
-			"reset":     resetTime,
-		}).Warn("Waiting - we have reached the rate limit:")
-		log.WithFields(log.Fields{
-			"until": resetTime,
-		}).Warn("Waiting")
-		time.Sleep(resetTime.Sub(time.Now()))
-	}
+	r.checkRateLimiting()
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -124,15 +116,7 @@ func (r *Request) CallHB(url string, results Response) {
 		}
 		defer resp.Body.Close()
 
-		headers := resp.Header
-		r.RateLimit.Limit, _ = strconv.Atoi(headers.Get("X-RateLimit-Limit"))
-		r.RateLimit.Remaining, _ = strconv.Atoi(headers.Get("X-RateLimit-Remaining"))
-		r.RateLimit.Reset, _ = strconv.ParseInt(headers.Get("X-RateLimit-Reset"), 10, 64)
-		log.WithFields(log.Fields{
-			"limit":     r.RateLimit.Limit,
-			"remaining": r.RateLimit.Remaining,
-			"reset":     r.RateLimit.Reset,
-		}).Debug("Rate Limiting:")
+		r.setRateLimiting(resp)
 
 		decoder := json.NewDecoder(resp.Body)
 		err = decoder.Decode(results)
@@ -143,5 +127,42 @@ func (r *Request) CallHB(url string, results Response) {
 		results.SetResultIdx(-1)
 		break
 	}
+
+}
+
+// Check to see if we need to sleep because of rate limiting
+func (r *Request) checkRateLimiting() {
+	if r.RateLimit.Limit > 0 && r.RateLimit.Remaining == 0 {
+		r.RateLimit.ZeroHits += 1
+		resetTime := time.Unix(r.RateLimit.Reset, 0)
+		log.WithFields(log.Fields{
+			"limit":     r.RateLimit.Limit,
+			"remaining": r.RateLimit.Remaining,
+			"reset":     resetTime,
+		}).Warn("Waiting - we have reached the rate limit:")
+		if r.RateLimit.ZeroHits > 1 {
+			log.Warn("We've had more than 1 remaining count of 0 returned to us, we're waiting until the reset time")
+			time.Sleep(resetTime.Sub(time.Now()))
+			r.RateLimit.ZeroHits = 0
+		} else {
+			// Seems to re-evaluate the remaining count every minute
+			log.Warn("We hit 1 remaining count of 0, wait for 60 seconds and try again")
+			time.Sleep(time.Second * 60)
+		}
+	} else if r.RateLimit.ZeroHits > 0 {
+		r.RateLimit.ZeroHits = 0
+	}
+}
+
+func (r *Request) setRateLimiting(resp *http.Response) {
+	headers := resp.Header
+	r.RateLimit.Limit, _ = strconv.Atoi(headers.Get("X-RateLimit-Limit"))
+	r.RateLimit.Remaining, _ = strconv.Atoi(headers.Get("X-RateLimit-Remaining"))
+	r.RateLimit.Reset, _ = strconv.ParseInt(headers.Get("X-RateLimit-Reset"), 10, 64)
+	log.WithFields(log.Fields{
+		"limit":     r.RateLimit.Limit,
+		"remaining": r.RateLimit.Remaining,
+		"reset":     time.Unix(r.RateLimit.Reset, 0),
+	}).Debug("Rate Limiting:")
 
 }

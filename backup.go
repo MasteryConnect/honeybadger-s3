@@ -30,6 +30,7 @@ func NewContext(bucket, directory, projects, key, lastRun string) *Context {
 			Limit:     0,
 			Remaining: 0,
 			Reset:     0,
+			ZeroHits:  0,
 		},
 	}
 }
@@ -153,7 +154,7 @@ func backupFault(ctx *Context, fault *hb.Fault, s3Faults *s3.Upload, s3Notices *
 	noticeCount := 0
 	for notice, more := notices.Next(); more; notice, more = notices.Next() {
 		noticeCount++
-		if fault.NoticesCount < 150 || noticeCount%100 == 0 {
+		if fault.NoticesCount < 100 || noticeCount%100 == 0 {
 			log.WithFields(
 				log.Fields{
 					"fault count":  faultCount,

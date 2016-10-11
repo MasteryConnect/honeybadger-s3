@@ -11,14 +11,19 @@ type URL struct {
 	Url        *url.URL
 	PathParams []string
 	Values     url.Values
+	Empty      bool
 }
 
 func NewURL(u string) *URL {
-	newUrl, err := url.Parse(u)
-	if err != nil {
-		log.Fatalln(err)
+	if len(u) == 0 {
+		return &URL{Empty: true}
+	} else {
+		newUrl, err := url.Parse(u)
+		if err != nil {
+			log.Fatalln(err)
+		}
+		return &URL{Url: newUrl, Values: newUrl.Query()}
 	}
-	return &URL{Url: newUrl, Values: newUrl.Query()}
 }
 
 // Mutates the URL to set the limit query param

@@ -1,5 +1,9 @@
 package honeybadger
 
+import (
+	log "github.com/Sirupsen/logrus"
+)
+
 type Faults struct {
 	ResultIdx  int      `json:"-"`
 	CallNeeded bool     `json:"-"`
@@ -9,25 +13,26 @@ type Faults struct {
 }
 
 type Fault struct {
-	ProjectId     int      `json:"project_id"`
-	Klass         string   `json:"klass"`
-	Component     string   `json:"component"`
-	Action        string   `json:"action"`
-	Environment   string   `json:"environment"`
-	Resolved      bool     `json:"resolved"`
-	Ignored       bool     `json:"ignored"`
-	CreatedAt     string   `json:"created_at"`
-	CommentsCount int      `json:"comments_count"`
-	Message       string   `json:"message"`
-	NoticesCount  int      `json:"notices_count"`
-	LastNoticeAt  string   `json:"last_notice_at"`
-	Tags          []string `json:"tags"`
-	Id            int      `json:"id"`
-	Assignee      string   `json:"assignee"`
-	Url           string   `json:"url"`
-	Assigneed     int      `json:"assignee>id"`
-	AssigneeEmail string   `json:"assignee>email"`
-	AssigneeName  string   `json:"assignee>name"`
+	ProjectId     int                    `json:"project_id"`
+	Klass         string                 `json:"klass"`
+	Component     string                 `json:"component"`
+	Action        string                 `json:"action"`
+	Environment   string                 `json:"environment"`
+	Resolved      bool                   `json:"resolved"`
+	Ignored       bool                   `json:"ignored"`
+	CreatedAt     string                 `json:"created_at"`
+	CommentsCount int                    `json:"comments_count"`
+	Message       string                 `json:"message"`
+	NoticesCount  int                    `json:"notices_count"`
+	LastNoticeAt  string                 `json:"last_notice_at"`
+	Tags          []string               `json:"tags"`
+	Id            int                    `json:"id"`
+	Url           string                 `json:"url"`
+	Assigneed     int                    `json:"assignee>id"`
+	AssigneeEmail string                 `json:"assignee>email"`
+	AssigneeName  string                 `json:"assignee>name"`
+	Deploy        map[string]interface{} `json:"deploy"`
+	Tickets       []string               `json:"tickets"`
 }
 
 func NewFaults(projectId int, apiKey string, createdAfter int64, rateLimit *RateLimit) *Faults {
@@ -45,7 +50,7 @@ func (f *Faults) Next() (fault *Fault, more bool) {
 	moreResults := f.moreResults()
 
 	if moreResults {
-		f.ResultIdx = f.ResultIdx + 1
+		f.ResultIdx += 1
 		// Get the next fault from the list of faults returned from the API call
 		if f.ResultIdx == (len(f.Results) - 1) {
 			f.CallNeeded = true
@@ -62,11 +67,23 @@ func (f *Faults) hasResults() bool {
 	return true
 }
 
+// Are there more results. If a call is needed i.e. we've reached the end of
+// the last retrieved batch, then make another call. Otherwise simply return
+// true i.e. we haven't finished iterating over the last batch we got
 func (f *Faults) moreResults() bool {
 	if f.CallNeeded {
+		f.CallNeeded = false
 		if f.hasResults() {
-			f.Request.Next(f.GetNextUrl(), f)
+			// Already have results so get the next batch if we have a next link
+			f.Results = nil
+			if url := f.GetNextUrl(); !url.Empty {
+				log.Debug("Faults - Calling the next page of results")
+				f.Links = Links{} // Reset links, otherwise old link data remains
+				f.Request.Next(url, f)
+			}
 		} else {
+			log.Debug("Faults - Calling the first page of results")
+			// First time calling faults for this project
 			f.Request.Faults(f)
 		}
 		return f.hasResults()

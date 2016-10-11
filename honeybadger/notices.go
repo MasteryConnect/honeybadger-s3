@@ -1,5 +1,11 @@
 package honeybadger
 
+import (
+	"encoding/json"
+
+	log "github.com/Sirupsen/logrus"
+)
+
 type Notices struct {
 	FaultId    int      `json:"-"`
 	ResultIdx  int      `json:"-"`
@@ -38,10 +44,10 @@ type request struct {
 }
 
 type trace struct {
-	Number int    `json:"number"`
-	File   string `json:"file"`
-	Method string `json:"method"`
-	Column int    `json:"column"`
+	Number json.Number `json:"number,Number"`
+	File   string      `json:"file"`
+	Method string      `json:"method"`
+	Column json.Number `json:"column,Number"`
 }
 
 func NewNotices(projectId, faultId int, apiKey string, createdAfter int64, rateLimit *RateLimit) *Notices {
@@ -60,7 +66,7 @@ func (p *Notices) Next() (notice *Notice, more bool) {
 	moreResults := p.moreResults()
 
 	if moreResults {
-		p.ResultIdx = p.ResultIdx + 1
+		p.ResultIdx += 1
 		// Get the next notice from the list of notices returned from the API call
 		if p.ResultIdx == (len(p.Results) - 1) {
 			p.CallNeeded = true
@@ -77,11 +83,23 @@ func (n *Notices) hasResults() bool {
 	return true
 }
 
+// Are there more results. If a call is needed i.e. we've reached the end of
+// the last retrieved batch, then make another call. Otherwise simply return
+// true i.e. we haven't finished iterating over the last batch we got
 func (n *Notices) moreResults() bool {
 	if n.CallNeeded {
+		n.CallNeeded = false
 		if n.hasResults() {
-			n.Request.Next(n.GetNextUrl(), n)
+			// Already have results so get the next batch if we have a next link
+			n.Results = nil
+			if url := n.GetNextUrl(); !url.Empty {
+				log.Debug("Notices - Calling the next page of results")
+				n.Links = Links{} // Reset links, otherwise old link data remains
+				n.Request.Next(url, n)
+			}
 		} else {
+			log.Debug("Notices - Calling the first page of results")
+			// First time calling notices for this fault
 			n.Request.Notices(n.FaultId, n)
 		}
 		return n.hasResults()

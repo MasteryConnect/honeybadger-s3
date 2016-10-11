@@ -86,7 +86,7 @@ func (p *Projects) includeAllNext() (project *Project, more bool) {
 	moreResults := p.moreResults()
 
 	if moreResults {
-		p.ResultIdx = p.ResultIdx + 1
+		p.ResultIdx += 1
 		// Get the next project from the list of projects returned from the API call
 		if p.ResultIdx == (len(p.Results) - 1) {
 			p.CallNeeded = true
@@ -134,11 +134,23 @@ func (p *Projects) hasResults() bool {
 	return true
 }
 
+// Are there more results. If a call is needed i.e. we've reached the end of
+// the last retrieved batch, then make another call. Otherwise simply return
+// true i.e. we haven't finished iterating over the last batch we got
 func (p *Projects) moreResults() bool {
 	if p.CallNeeded {
+		p.CallNeeded = false
 		if p.hasResults() {
-			p.Request.Next(p.GetNextUrl(), p)
+			// Already have results so get the next batch if we have a next link
+			p.Results = nil
+			if url := p.GetNextUrl(); !url.Empty {
+				log.Debug("Projects - Calling the next page of results")
+				p.Links = Links{} // Reset links, otherwise old link data remains
+				p.Request.Next(url, p)
+			}
 		} else {
+			log.Debug("Projects - Calling the first page of results")
+			// First time calling projects
 			p.Request.Projects(p)
 		}
 		return p.hasResults()
