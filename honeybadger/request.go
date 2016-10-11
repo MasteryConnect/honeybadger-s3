@@ -41,6 +41,9 @@ func (r *Request) Projects(results Response) {
 		"url": urlStr,
 	}).Debug("run data")
 	r.CallHB(urlStr, results)
+	for results.Count() == 0 && r.RateLimit.Remaining == 0 {
+		r.CallHB(urlStr, results)
+	}
 }
 
 func (r *Request) Faults(results Response) {
@@ -52,11 +55,14 @@ func (r *Request) Faults(results Response) {
 	}
 	urlParts := strings.Split(url.String(), "?")
 	urlParts = Insert(urlParts, 1, "/", strconv.Itoa(r.ProjectId), "/", "faults", "?")
-	hbUrl := strings.Join(urlParts, "")
+	urlStr := strings.Join(urlParts, "")
 	log.WithFields(log.Fields{
-		"url": hbUrl,
+		"url": urlStr,
 	}).Debug("run data")
-	r.CallHB(hbUrl, results)
+	r.CallHB(urlStr, results)
+	for results.Count() == 0 && r.RateLimit.Remaining == 0 {
+		r.CallHB(urlStr, results)
+	}
 }
 
 func (r *Request) Notices(faultId int, results Response) {
@@ -68,11 +74,14 @@ func (r *Request) Notices(faultId int, results Response) {
 	}
 	urlParts := strings.Split(url.String(), "?")
 	urlParts = Insert(urlParts, 1, "/", strconv.Itoa(r.ProjectId), "/", "faults", "/", strconv.Itoa(faultId), "/", "notices", "?")
-	hbUrl := strings.Join(urlParts, "")
+	urlStr := strings.Join(urlParts, "")
 	log.WithFields(log.Fields{
-		"url": hbUrl,
+		"url": urlStr,
 	}).Debug("run data")
-	r.CallHB(hbUrl, results)
+	r.CallHB(urlStr, results)
+	for results.Count() == 0 && r.RateLimit.Remaining == 0 {
+		r.CallHB(urlStr, results)
+	}
 }
 
 // The URL is fully formed (except created_after which may be a bug), simply
