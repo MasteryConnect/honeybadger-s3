@@ -17,9 +17,10 @@ type Context struct {
 	RunData            *s3.RunData
 	UploadedFiles      []string
 	RateLimit          *hb.RateLimit
+	NoticeLimit        int
 }
 
-func NewContext(bucket, directory, projects, key, lastRun string) *Context {
+func NewContext(bucket, directory, projects, key, lastRun string, noticeLimit int) *Context {
 	return &Context{
 		S3bucket:           bucket,
 		S3prefix:           directory,
@@ -32,6 +33,7 @@ func NewContext(bucket, directory, projects, key, lastRun string) *Context {
 			Reset:     0,
 			ZeroHits:  0,
 		},
+		NoticeLimit: noticeLimit,
 	}
 }
 
@@ -152,7 +154,7 @@ func backupFault(ctx *Context, fault *hb.Fault, s3Faults *s3.Upload, s3Notices *
 	notices := hb.NewNotices(fault.ProjectId, fault.Id, ctx.HoneybadgerKey, lastRunTimestamp, ctx.RateLimit)
 
 	noticeCount := 0
-	for notice, more := notices.Next(); more; notice, more = notices.Next() {
+	for notice, more := notices.Next(); more && (ctx.NoticeLimit > noticeCount); notice, more = notices.Next() {
 		noticeCount++
 		if fault.NoticesCount < 100 || noticeCount%100 == 0 {
 			log.WithFields(

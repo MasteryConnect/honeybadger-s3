@@ -1,9 +1,11 @@
 package main
 
 import (
+	"math"
+	"os"
+
 	log "github.com/Sirupsen/logrus"
 	"gopkg.in/urfave/cli.v1"
-	"os"
 )
 
 func init() {
@@ -19,7 +21,7 @@ func init() {
 func main() {
 	app := cli.NewApp()
 	app.Name = "honeybadger-s3"
-	app.Version = "1.0"
+	app.Version = "1.1"
 	app.Usage = `
    backup honeybadger.io faults to AWS S3.
 
@@ -51,6 +53,11 @@ func main() {
 			Name:   "last-run, l",
 			Usage:  "the last time this process ran, the time from which this will search for new faults. Use the following format: <year><month><day><hour><minute><second> e.g. 20150430140508",
 			EnvVar: "LAST_RUN",
+		}, cli.IntFlag{
+			Name:   "notice-limit, n",
+			Usage:  "limit the number of notices retrieved per fault. Default is all notices",
+			Value:  math.MaxInt32,
+			EnvVar: "NOTICE_LIMIT",
 		},
 	}
 	app.Action = func(c *cli.Context) {
@@ -67,6 +74,7 @@ func main() {
 				c.String("projects"),
 				c.String("honeybadger-key"),
 				c.String("last-run"),
+				c.Int("notice-limit"),
 			),
 		)
 	}
